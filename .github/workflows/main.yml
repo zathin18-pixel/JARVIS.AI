@@ -1,0 +1,171 @@
+name: Build JARVIS Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Create Android project
+        run: |
+          mkdir -p app/src/main/java/com/jarvis/ai
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "JARVIS"
+          include(":app")
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.jarvis.ai'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.jarvis.ai"
+                  minSdk 26
+                  targetSdk 35
+                  versionCode 1
+                  versionName "1.0"
+              }
+          }
+          EOF
+
+          mkdir -p app/src/main/res/values
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowFullscreen">true</item>
+                  <item name="android:windowLightStatusBar">false</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
+              <application
+                  android:theme="@style/AppTheme"
+                  android:label="JARVIS AI"
+                  android:allowBackup="false"
+                  android:supportsRtl="true">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/jarvis/ai/MainActivity.java <<'EOF'
+          package com.jarvis.ai;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.graphics.Color;
+          import android.view.Gravity;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
+          import android.widget.Button;
+
+          public class MainActivity extends Activity {
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  LinearLayout layout = new LinearLayout(this);
+                  layout.setOrientation(LinearLayout.VERTICAL);
+                  layout.setGravity(Gravity.CENTER);
+                  layout.setPadding(40, 40, 40, 40);
+                  layout.setBackgroundColor(Color.rgb(5, 10, 18));
+
+                  TextView title = new TextView(this);
+                  title.setText("J A R V I S");
+                  title.setTextColor(Color.WHITE);
+                  title.setTextSize(34);
+                  title.setGravity(Gravity.CENTER);
+
+                  TextView status = new TextView(this);
+                  status.setText("SYSTEM ONLINE");
+                  status.setTextColor(Color.CYAN);
+                  status.setTextSize(18);
+                  status.setGravity(Gravity.CENTER);
+
+                  Button button = new Button(this);
+                  button.setText("ACTIVATE JARVIS");
+                  button.setTextSize(16);
+
+                  layout.addView(title);
+                  layout.addView(status);
+                  layout.addView(button);
+
+                  setContentView(layout);
+              }
+          }
+          EOF
+
+      - name: Install Gradle
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
+          unzip -q gradle-8.9-bin.zip
+
+      - name: Build APK
+        run: |
+          ./gradle-8.9/bin/gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
